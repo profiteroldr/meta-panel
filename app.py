@@ -46,17 +46,12 @@ def health(): return {'status':'ok'}
 def login():
     error=None
     if request.method=='POST':
-        # Global single-user throttle is shared across workers and cannot be bypassed by spoofed IP headers.
-        with db() as c:
-            r=c.execute('SELECT * FROM attempts WHERE key=?',('admin',)).fetchone()
-            if r and r['until']>time.time(): return render_template('login.html',error='Çok fazla deneme. 15 dakika sonra tekrar deneyin.'),429
-            valid_user=hmac.compare_digest(request.form.get('username','').encode(),os.environ.get('ADMIN_USERNAME','admin').encode())
-            valid_pass=check_password_hash(password_hash,request.form.get('password',''))
-            if valid_user and valid_pass:
-                c.execute('DELETE FROM attempts WHERE key=?',('admin',)); session.clear(); session['auth']=True; session.permanent=True
-                return redirect('/')
-            n=(r['failures'] if r and not r['until'] else 0)+1
-            c.execute('INSERT OR REPLACE INTO attempts VALUES(?,?,?)',('admin',n,time.time()+900 if n>=5 else 0)); error='Kullanıcı adı veya şifre hatalı.'
+        valid_user=hmac.compare_digest(request.form.get('username','').encode(),os.environ.get('ADMIN_USERNAME','admin').encode())
+        valid_pass=check_password_hash(password_hash,request.form.get('password',''))
+        if valid_user and valid_pass:
+            session.clear(); session['auth']=True; session.permanent=True
+            return redirect('/')
+        error='Kullanıcı adı veya şifre hatalı.'
     return render_template('login.html',error=error)
 @app.post('/logout')
 @auth
